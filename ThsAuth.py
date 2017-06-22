@@ -5,8 +5,6 @@ from urllib import urlopen
 from urllib import urlretrieve
 
 import os
-import os.path
-
 from os.path import getsize
 
 import time
@@ -30,7 +28,7 @@ def get_file():
                 print '\n读取文件：\n' + os.path.join(parent,filename) + '\n'
                 read_file(parent,filename)
 
-#读取文件
+#读取、解析文件
 def read_file(parent,filename):
     dir_file = os.path.join(parent,filename)
     fobj = open(dir_file, 'r')
@@ -43,16 +41,21 @@ def read_file(parent,filename):
             #产品证书
             authcode = eachLine[0:28]   #取前28个字符
             print authcode
+
+            #对authcode进行url编码处理
+            authcode = code2url(authcode)
+            #print 'authcode处理后：' + authcode
+
+            #查询证书状态
+            queryCert(authcode)
+
+            #下载证书
             down_file(parent,authcode)
         else:
             continue
 
-#下载证书
-def down_file(parent,authcode):
-
-    #对authcode进行url编码处理
-    authcode = code2url(authcode)
-    #print 'authcode处理后：' + authcode
+#查询证书中心的证书状态
+def queryCert(authcode):
 
     search_url='http://services.myhexin.com/produser/querycert?authcode=' + authcode + '&Create=%B2%E9%D1%AF'
     print '查询地址：\n' + search_url
@@ -64,6 +67,9 @@ def down_file(parent,authcode):
     except:
         print '错误：查询地址打开失败。\n'
 
+#下载证书
+def down_file(parent,authcode):
+
     #模拟人操作，延时0.5秒
     time.sleep(0.5)
 
@@ -71,7 +77,7 @@ def down_file(parent,authcode):
     print '下载地址：\n' + download_url
 
     download_file=authcode[0:3] + '.dat'
-    print '文件名：' + download_file + '\n'
+    print '证书名称：\n' + download_file + '\n'
 
     #下载证书文件
     times = 1
@@ -118,6 +124,6 @@ if raw_input('按q退出，按其他任意键继续：') != 'q':
     get_file()
     print '下列产品证书下载失败，请手动下载：\n' + errorfile
     if errorfile == '':
-        print '全部下载成功\n'
+        print '全部下载成功。\n'
     else:
         print '1、请确认"验证不通过"的证书是否是已注销等原因。\n2、网络不好、服务器未响应都会造成下载失败。\n3、否则，请将错误的产品证书提交给QQ：371918080，以便排查错误。\n'
