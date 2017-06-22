@@ -16,6 +16,8 @@ socket.setdefaulttimeout(6)
 
 global errorfile
 errorfile = ''
+global errorCode
+errorCode = ''
 
 #获取当前目录
 def get_file():
@@ -41,33 +43,59 @@ def read_file(parent,filename):
         #判断每行第4、第9个字符是否为'-'，否则不是合法authcode
         if eachLine[3:4] == '-' and eachLine[8:9] == '-':
             #产品证书
-            authcode = eachLine[0:28]   #取前28个字符
-            print authcode
+            authcodePre = eachLine[0:28]   #取前28个字符
+            print authcodePre
 
             #对authcode进行url编码处理
-            authcode = code2url(authcode)
+            authcode = code2url(authcodePre)
             #print 'authcode处理后：' + authcode
 
-            #查询证书状态
-            queryCert(authcode)
+            #打开查询页面
+            page = getCertPage(authcode)
 
-            #下载证书
-            down_file(parent,authcode)
+            #解析查询页面,获取证书状态
+            status = bsHtml(page)
+            if status == '1':
+                #证书状态有效，则下载证书
+                down_file(parent,authcode)
+            else:
+                #证书状态已无效，不下载证书，并记录
+                global errorCode
+                errorCode += authcodePre + '\n'
         else:
             continue
 
-#查询证书中心的证书状态
-def queryCert(authcode):
+#打开查询页面
+def getCertPage(authcode):
 
     search_url='http://services.myhexin.com/produser/querycert?authcode=' + authcode + '&Create=%B2%E9%D1%AF'
     print '查询地址：\n' + search_url
 
-    #打开查询页面
-    try:
-        webpage = urlopen(search_url)
-        webpage.close()
-    except:
-        print '错误：查询地址打开失败。\n'
+    #打开查询页面,最多查询3次
+    times = 1
+    while times <=3:
+        try:
+            response = urlopen(search_url)
+            page = response.read()
+            response.close()
+            return page
+        except:
+            print '错误：查询页面打开失败。\n'
+
+#解析html页面
+def bsHtml(page):
+    soup = BeautifulSoup(page, "html.parser")
+    #find只解析第一行,取出字符串,unicode转为utf-8
+    hmlStr = soup.find('tr', bgcolor='#F2F2F2').get_text().encode('utf-8')
+    if '有效' in hmlStr:
+        print '有效。\n'
+        return '1'
+    elif '无效' in hmlStr:
+        print '无效。\n'
+        return '0'
+    else:
+        print '无此状态。\n'
+        return '-1'
 
 #下载证书
 def down_file(parent,authcode):
@@ -124,6 +152,8 @@ print '''
 '''
 if raw_input('按q退出，按其他任意键继续：') != 'q':
     get_file()
+    if errorCode != '':
+        print '下列产品证书无效，请确认！\n' + errorCode
     print '下列产品证书下载失败，请手动下载：\n' + errorfile
     if errorfile == '':
         print '全部下载成功。\n'
