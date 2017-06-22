@@ -8,6 +8,7 @@ import os
 from os.path import getsize
 
 from bs4 import BeautifulSoup
+import re
 
 import time
 
@@ -86,12 +87,14 @@ def getCertPage(authcode):
 def bsHtml(page):
     soup = BeautifulSoup(page, "html.parser")
     #find只解析第一行,取出字符串,unicode转为utf-8
-    hmlStr = soup.find('tr', bgcolor='#F2F2F2').get_text().encode('utf-8')
-    if '有效' in hmlStr:
-        print '有效。\n'
+    htmlStr = soup.find('tr', bgcolor='#F2F2F2').get_text().encode('utf-8')
+    if '有效' in htmlStr:
+        pattern = re.compile('(截止时间:.*?)\n',re.S)
+        result = re.search(pattern,htmlStr)
+        print '有效，' + result.group(1).strip() + '\n'
         return '1'
-    elif '无效' in hmlStr:
-        print '无效。\n'
+    elif '无效' in htmlStr:
+        print htmlStr.replace('\t','') + '\n'
         return '0'
     else:
         print '无此状态。\n'
