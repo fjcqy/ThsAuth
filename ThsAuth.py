@@ -7,6 +7,8 @@ from urllib import urlretrieve
 import os
 from os.path import getsize
 
+from bs4 import BeautifulSoup
+
 import time
 
 import socket
