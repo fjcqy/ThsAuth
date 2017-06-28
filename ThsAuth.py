@@ -25,7 +25,7 @@ def get_file():
     rootdir = os.getcwd()
     print '当前目录：\n' + rootdir
 
-    #遍历所以文件，包括子目录
+    #遍历所有文件，包括子目录
     for parent,dirnames,filenames in os.walk(rootdir):
         for filename in filenames:
             #只读取后缀为'.txt'的文件
@@ -56,13 +56,19 @@ def read_file(parent,filename):
 
             #解析查询页面,获取证书状态
             status = bsHtml(page)
+            global errorCode
             if status == '1':
                 #证书状态有效，则下载证书
                 down_file(parent,authcode)
+            elif status == '0':
+                #证书已无效，不下载证书，并记录
+                errorCode += authcodePre + '    证书已无效。\n'
+            elif status == '-1':
+                #无此注册码
+                errorCode += authcodePre + '    无此注册码。\n'
             else:
-                #证书状态已无效，不下载证书，并记录
-                global errorCode
-                errorCode += authcodePre + '\n'
+                #无法处理
+                errorCode += authcodePre + '    无法处理。\n'
         else:
             continue
 
@@ -85,7 +91,8 @@ def getCertPage(authcode):
 
 #解析html页面
 def bsHtml(page):
-    soup = BeautifulSoup(page, "html.parser")
+    #服务器传回来页面是GBK编码，先处理成unicode，避免乱码
+    soup = BeautifulSoup(page.decode('gb2312'), "html.parser")
     #find只解析第一行,取出字符串,unicode转为utf-8
     htmlStr = soup.find('tr', bgcolor='#F2F2F2').get_text().encode('utf-8')
     if '有效' in htmlStr:
@@ -96,9 +103,12 @@ def bsHtml(page):
     elif '无效' in htmlStr:
         print htmlStr.replace('\t','') + '\n'
         return '0'
+    elif '无此注册吗！！！' in htmlStr:
+        print '无此注册码，请确认！\n'
+        return '-1'
     else:
         print '无此状态。\n'
-        return '-1'
+        return '-2'
 
 #下载证书
 def down_file(parent,authcode):
@@ -156,9 +166,9 @@ print '''
 if raw_input('按q退出，按其他任意键继续：') != 'q':
     get_file()
     if errorCode != '':
-        print '下列产品证书无效，请确认！\n' + errorCode
+        print '下列产品证书无效或不存在，请确认！\n' + errorCode
     print '下列产品证书下载失败，请手动下载：\n' + errorfile
     if errorfile == '':
-        print '全部下载成功。\n'
+        print '（全部下载成功。）\n'
     else:
         print '1、请确认"验证不通过"的证书是否是已注销等原因。\n2、网络不好、服务器未响应都会造成下载失败。\n3、否则，请将错误的产品证书提交给QQ：371918080，以便排查错误。\n'
