@@ -20,8 +20,10 @@ errorfile = ''
 global errorCode
 errorCode = ''
 
-#获取当前目录
-def get_file():
+#读取txt文件,按行返回
+def getLine():
+
+    #获取当前目录
     rootdir = os.getcwd()
     print '当前目录：\n' + rootdir
 
@@ -31,46 +33,22 @@ def get_file():
             #只读取后缀为'.txt'的文件
             if os.path.splitext(filename)[1] == '.txt':
                 print '\n读取文件：\n' + os.path.join(parent,filename) + '\n'
-                read_file(parent,filename)
 
-#读取、解析文件
-def read_file(parent,filename):
-    dir_file = os.path.join(parent,filename)
-    fobj = open(dir_file, 'r')
-    allLines = fobj.readlines()     #读完所有行
-    fobj.close()
-    for eachLine in allLines:       #遍历整个文件
+                fobj = open(os.path.join(parent,filename), 'r')
+                for eachLine in fobj:       #一行一行的读取
+                    yield [parent,filename,eachLine]
+                fobj.close()
+
+#判断行是否为authcode
+def isAuthcode(line):
         #标准authcode示例：M11-v4qp-jP+w-PLc8-b3oA-lXZE
         #判断每行第4、第9个字符是否为'-'，否则不是合法authcode
-        if eachLine[3:4] == '-' and eachLine[8:9] == '-':
+        if line[3:4] == '-' and line[8:9] == '-':
             #产品证书
-            authcodePre = eachLine[0:28]   #取前28个字符
-            print authcodePre
-
-            #对authcode进行url编码处理
-            authcode = code2url(authcodePre)
-            #print 'authcode处理后：' + authcode
-
-            #打开查询页面
-            page = getCertPage(authcode)
-
-            #解析查询页面,获取证书状态
-            status = bsHtml(page)
-            global errorCode
-            if status == '1':
-                #证书状态有效，则下载证书
-                down_file(parent,authcode)
-            elif status == '0':
-                #证书已无效，不下载证书，并记录
-                errorCode += authcodePre + '    证书已无效。\n'
-            elif status == '-1':
-                #无此注册码
-                errorCode += authcodePre + '    无此注册码。\n'
-            else:
-                #无法处理
-                errorCode += authcodePre + '    无法处理。\n'
+            authcode = line[0:28]   #取前28个字符
+            return authcode
         else:
-            continue
+            return False
 
 #打开查询页面
 def getCertPage(authcode):
@@ -164,7 +142,34 @@ print '''
 7、其他问题请参考文件夹格式
 '''
 if raw_input('按q退出，按其他任意键继续：') != 'q':
-    get_file()
+    for parent,filename,line in getLine():
+        authcode = isAuthcode(line)
+        if (authcode):
+            print authcode
+
+            #对authcode进行url编码处理
+            authcodeUrl = code2url(authcode)
+            #print 'authcode处理后：' + authcode
+
+            #打开查询页面
+            page = getCertPage(authcodeUrl)
+
+            #解析查询页面,获取证书状态
+            status = bsHtml(page)
+            #global errorCode
+            if status == '1':
+                #证书状态有效，则下载证书
+                down_file(parent,authcodeUrl)
+            elif status == '0':
+                #证书已无效，不下载证书，并记录
+                errorCode += authcode + '    证书已无效。\n'
+            elif status == '-1':
+                #无此注册码
+                errorCode += authcode + '    无此注册码。\n'
+            else:
+                #无法处理
+                errorCode += authcode + '    无法处理。\n'
+
     if errorCode != '':
         print '下列产品证书无效或不存在，请确认！\n' + errorCode
     print '下列产品证书下载失败，请手动下载：\n' + errorfile
