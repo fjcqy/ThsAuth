@@ -73,20 +73,36 @@ def bsHtml(page):
     soup = BeautifulSoup(page.decode('gb2312'), "html.parser")
     #find只解析第一行,取出字符串,unicode转为utf-8
     htmlStr = soup.find('tr', bgcolor='#F2F2F2').get_text().encode('utf-8')
+    global errorCode
     if '有效' in htmlStr:
-        pattern = re.compile('(截止时间:.*?)\n',re.S)
-        result = re.search(pattern,htmlStr)
-        print '有效，' + result.group(1).strip() + '\n'
-        return '1'
+        pattern = re.compile('截止时间:(.*?)\n',re.S)
+        result = re.search(pattern,htmlStr).group(1).strip()
+        print '有效，截止时间:' + result
+        #当前时间戳
+        nowTime = time.time()
+        #获得的证书时间
+        authTime = time.mktime(time.strptime(result, '%Y-%m-%d %H:%M:%S'))
+        #证书少于60天过期
+        if authTime -nowTime < 5184000:
+            print '剩余%d天过期，请记得延期\n' %((authTime -nowTime)/86400)
+            #sixty(authcode)
+        down_file(parent,authcodeUrl)
     elif '无效' in htmlStr:
-        print htmlStr.replace('\t','') + '\n'
-        return '0'
+        pattern = re.compile('\t\t\t(.*?)$',re.S)
+        result = re.search(pattern,htmlStr).group(1).strip()
+        print result + '\n'
+        errorCode += authcode + '    ' + result + '\n'
+    elif '已过期' in htmlStr:
+        pattern = re.compile('(截止时间:.*?)\n',re.S)
+        result = re.search(pattern,htmlStr).group(1).strip()
+        print '签发的证书已过期，' + result + '\n'
+        errorCode += authcode + '    签发的证书已过期，' + result + '\n'
     elif '无此注册吗！！！' in htmlStr:
         print '无此注册码，请确认！\n'
-        return '-1'
+        errorCode += authcode + '    无此注册码。\n'
     else:
         print '无此状态。\n'
-        return '-2'
+        errorCode += authcode + '    无法处理。\n'
 
 #下载证书
 def down_file(parent,authcode):
@@ -131,6 +147,10 @@ def code2url(authcode):
     authcode = authcode.replace('+','%2B')
     return authcode
 
+#60天证书
+def sixty(date):
+    pass
+
 print '''
 请按下面要求，否则无法自动下载证书：
 1、将需要下载的产品证书保存在*.txt文本中，名字随意；
@@ -155,23 +175,10 @@ if raw_input('按q退出，按其他任意键继续：') != 'q':
             page = getCertPage(authcodeUrl)
 
             #解析查询页面,获取证书状态
-            status = bsHtml(page)
-            #global errorCode
-            if status == '1':
-                #证书状态有效，则下载证书
-                down_file(parent,authcodeUrl)
-            elif status == '0':
-                #证书已无效，不下载证书，并记录
-                errorCode += authcode + '    证书已无效。\n'
-            elif status == '-1':
-                #无此注册码
-                errorCode += authcode + '    无此注册码。\n'
-            else:
-                #无法处理
-                errorCode += authcode + '    无法处理。\n'
+            bsHtml(page)
 
     if errorCode != '':
-        print '下列产品证书无效或不存在，请确认！\n' + errorCode
+        print '下列产品证书无效/不存在/已过期，请确认！\n' + errorCode
     print '下列产品证书下载失败，请手动下载：\n' + errorfile
     if errorfile == '':
         print '（全部下载成功。）\n'
